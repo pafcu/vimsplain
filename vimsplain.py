@@ -2,6 +2,7 @@
 from __future__ import print_function # For python 3 compatibility
 import sys
 import re
+import optparse
 
 CTRL_CHAR = '§'
 
@@ -138,11 +139,11 @@ def parse(instr, commands, mode, recording, only_motions=False):
 			else:
 				try:
 					expl += ' from '+m.group('from')
-				except IndexError, TypeError:
+				except (IndexError, TypeError):
 					pass
 				try:
 					expl += ' to '+m.group('to')
-				except IndexError, TypeError:
+				except (IndexError, TypeError):
 					pass
 				return (instr[0:m.end()], expl, instr[m.end():], newmode, recording)
 
@@ -184,6 +185,13 @@ numcom_expr = re.compile(r'(?:\bN(th)?\b|\bNmove\b)')
 plain_expr = re.compile(r'({.+?}|\[.+?\])')
 default_expr = re.compile(r'default (?:is )?(\d+)')
 
+def replace_specials(s):
+	try:
+		s = re.sub('<([A-Za-z]+)>',lambda m: special_chars[m.group(1)], s) # Replace some special chars
+	except:
+		pass # Unknown special char, just skip it for now
+	return s
+
 def parse_commands(fixed_lines):
 	commands = {}
 	for key in mode_change:
@@ -200,10 +208,7 @@ def parse_commands(fixed_lines):
 
 			command = command.replace('CTRL-',CTRL_CHAR) # Replace control characters
 			command = command.replace(' ','') # Remove whitespace in commands
-			try:
-				command = re.sub('<([A-Za-z]+)>',lambda m: special_chars[m.group(1)], command) # Replace some special chars
-			except:
-				pass # Unknown special char, just skip it for now
+			command = replace_specials(command)
 
 			# Escape all text except inside {}
 			regexp_texts = re.findall(r'\{.*?\}', command)
@@ -225,7 +230,7 @@ def parse_commands(fixed_lines):
 				idx = command.index(':')
 				command = command[:idx+1]+range_expr+command[idx+1:]
 
-				command += r'(?P<args>[^A-Za-z].*)' # Some commands take arguments. Again, impossible to say which
+				command += r'(?P<args>[^A-Za-z].*)?' # Some commands take arguments. Again, impossible to say which
 				command += r'\%sM'%CTRL_CHAR # Ex commands expect a newline at the end
 
 			# Check if command takes numeric argument
@@ -249,8 +254,6 @@ def parse_commands(fixed_lines):
 			else:
 				is_motion = False
 
-
-
 			expect_motion = command.endswith('{motion}')
 
 			tup = [tag, re.compile(command.replace('{motion}','')), parts[3], plain_command, is_motion, expect_motion]
@@ -271,7 +274,14 @@ def parse_commands(fixed_lines):
 	return commands
 
 commands = parse_commands(fix_help(open('index.txt')))
-instr = sys.argv[1]
+
+parser = optparse.OptionParser(description='Explain a sequence of Vim commands.')
+parser.add_option('--convert_special', dest='convert', action='store_true', help='Interpret sequences in angle brackets as special characters (e.g. <CR>).')
+options, args = parser.parse_args()
+instr = args[0]
+if options.convert:
+	instr = replace_specials(instr)
+
 mode = 'normal'
 recording = False
 

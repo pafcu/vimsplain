@@ -175,7 +175,7 @@ mode_change['ex'] = ['Q']
 
 mode_mapping = dict([(command, mode) for mode in mode_change for command in mode_change[mode]])
 
-special_chars = {'CR':CTRL_CHAR+'M', 'TAB':CTRL_CHAR+'I', 'BS':CTRL_CHAR+'?', 'ESC':CTRL_CHAR+'[', 'NL':CTRL_CHAR+'M', 'Space':' '}
+special_chars = {'CR':CTRL_CHAR+'M', 'TAB':CTRL_CHAR+'I', 'BS':CTRL_CHAR+'?', 'Esc':CTRL_CHAR+'[', 'NL':CTRL_CHAR+'M', 'Space':' '}
 
 optional_expr = re.compile(r'\\\[(.+?)\\\]') # Needs some extra slashes due to escaping
 expr_expr = re.compile(r'{([^m].+?)}') # [^m] needed due to crappy handling of {motion}
@@ -230,7 +230,7 @@ def parse_commands(fixed_lines):
 				idx = command.index(':')
 				command = command[:idx+1]+range_expr+command[idx+1:]
 
-				command += r'(?P<args>[^A-Za-z].*)?' # Some commands take arguments. Again, impossible to say which
+				command += r'(?P<args>[^A-Za-z].*?)?' # Some commands take arguments. Again, impossible to say which
 				command += r'\%sM'%CTRL_CHAR # Ex commands expect a newline at the end
 
 			# Check if command takes numeric argument

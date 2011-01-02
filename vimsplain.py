@@ -53,6 +53,9 @@ def fix_help(helpfile):
 			if parts[0] == '|quote|' or parts[0] == '|:|': 
 				continue
 
+			if parts[0] == '|@|': # Bug in Vim documentation
+				parts[1] = '@{0-9a-zA-Z".=*}'
+
 			line = '\t'.join(parts)
 			parts = line.split('\t') # Resplit to get parts separated by inserted tabs
 			section_lines[-1].append(parts)
@@ -116,14 +119,14 @@ def parse(instr, commands, mode, recording, only_motions=False):
 		if only_motions and not is_motion: # Sometimes we are only interested in motion commands
 			continue
 
-		if recording == False and  'while recording' in expl:
+		# Skip command that only applies when recording if not recording
+		if recording == False and 'while recording' in expl:
 			continue
-
-		if tag == 'q':
-			recording = not recording
 
 		m = expr.match(instr) # Check if input matches command
 		if m:
+			if tag == 'q':
+				recording = not recording
 			expl = fix_explanation(m,expl)
 
 			newmode = mode
@@ -186,10 +189,8 @@ plain_expr = re.compile(r'({.+?}|\[.+?\])')
 default_expr = re.compile(r'default (?:is )?(\d+)')
 
 def replace_specials(s):
-	try:
-		s = re.sub('<([A-Za-z]+)>',lambda m: special_chars[m.group(1)], s) # Replace some special chars
-	except:
-		pass # Unknown special char, just skip it for now
+	s = re.sub('<C-(.)>',lambda m: CTRL_CHAR+m.group(1), s) # Replace some special chars
+	s = re.sub('<([A-Za-z]+)>',lambda m: special_chars.get(m.group(1), m.group(0)), s) # Replace some special chars
 	return s
 
 def parse_commands(fixed_lines):

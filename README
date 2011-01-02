@@ -42,7 +42,7 @@ cfd     delete 1 text [into buffer x] and start insert with motion cursor to 1 o
                 Command: §[     end insert mode (unless 'insertmode' set)
 ZZ      store current file if modified, and exit
 
-There are still many features missing, most importantly ranges, patterns, filters, EX mode. Handling special characters (<TAB> etc. is also missing). There are also probably numerous bugs.
+There are still many features missing, most importantly support for arrow keys, mouse buttons, backspace and command line editing mode.
 
 The file index.txt is a slightly modified version of the same file as included in Vim 7.3. It is licensed under the Vim license, see LICENSE.vim. Eveything else is licensed under the ISC license, see LICENSE.
 

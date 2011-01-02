@@ -5,8 +5,7 @@ import re
 
 CTRL_CHAR = '§'
 
-# TODO: {pattern}, {filter}, ex mode, better handling of CTRL, ranges, special chars
-# Math in explanations (N+-1 etc).
+# TODO: better handling of CTRL, special chars
 # Unicode issues with Python 2.x, don't use it!
 
 def fix_help(helpfile):
@@ -73,6 +72,7 @@ def fix_explanation(m, expl):
 	# Replace numeric description in explanation with the value found in the input string
 	try:
 		if m.group('num') != '': 
+			expl = expl.replace('N-1',str(int(m.group(1)) - 1))
 			expl = numcom_expr.sub(m.group(1), expl)
 		else: # No numberic value in input, use default
 			m2 = default_expr.search(expl)
@@ -80,6 +80,7 @@ def fix_explanation(m, expl):
 				default = int(m2.group(1))
 			else:
 				default = 1 # Assume 1 as a default "default"
+			expl = expl.replace('N-1', str(default - 1))
 			expl = numcom_expr.sub(str(default), expl)
 	except IndexError: # Does not have numeric component
 		pass
@@ -92,7 +93,7 @@ def fix_explanation(m, expl):
 		pass
 
 	# Replace {char},{word},... in explanation
-	for typ in ['char', 'word', 'count', 'height']:
+	for typ in ['char', 'word', 'count', 'height', 'pattern', 'filter']:
 		try:
 			expl = re.sub(r'\{%s\}'%typ, m.group(typ), expl)
 			expl = re.sub(r'%s'%typ.upper(), m.group(typ), expl)
@@ -135,6 +136,14 @@ def parse(instr, commands, mode, recording, only_motions=False):
 				motion_match, motion_expl, instr, mode, recording = parse(instr[m.end():],commands,mode, recording, only_motions=True)
 				return (cmd+motion_match, expl+' with motion %s'%motion_expl, instr, newmode, recording)
 			else:
+				try:
+					expl += ' from '+m.group('from')
+				except TypeError:
+					pass
+				try:
+					expl += ' to '+m.group('to')
+				except TypeError:
+					pass
 				return (instr[0:m.end()], expl, instr[m.end():], newmode, recording)
 
 	raise ValueError
@@ -159,10 +168,13 @@ def fix_regexp(regexp):
 # Commands that change mode.
 mode_change = {}
 mode_change['insert'] = ['a','A','i','I','gI','gi','o','O','c','cc','v_c','v_r','v_s',':startinsert',':append','s']
-mode_change['normal'] = ['CTRL-[','i_CTRL-[','i_CTRL-C','i_<Esc>','c_CTRL-\_CTRL-N','c_CTRL-\_GTRL-G','v_CTRL-\_CTRL-N','v_CTRL-\_GTRL-G']
+mode_change['normal'] = ['CTRL-[','i_CTRL-[','i_CTRL-C','i_<Esc>','c_CTRL-\_CTRL-N','c_CTRL-\_GTRL-G','v_CTRL-\_CTRL-N','v_CTRL-\_GTRL-G',':visual',':view']
 mode_change['visual'] = ['CTRL_V','V','v','<RightMouse>']
+mode_change['ex'] = ['Q']
 
 mode_mapping = dict([(command, mode) for mode in mode_change for command in mode_change[mode]])
+
+special_chars = {'CR':CTRL_CHAR+'M', 'TAB':CTRL_CHAR+'I', 'BS':CTRL_CHAR+'?', 'ESC':CTRL_CHAR+'[', 'NL':CTRL_CHAR+'M', 'Space':' '}
 
 optional_expr = re.compile(r'\\\[(.+?)\\\]') # Needs some extra slashes due to escaping
 expr_expr = re.compile(r'{([^m].+?)}') # [^m] needed due to crappy handling of {motion}
@@ -174,9 +186,9 @@ default_expr = re.compile(r'default (?:is )?(\d+)')
 
 def parse_commands(fixed_lines):
 	commands = {}
-	commands['normal'] = []
-	commands['insert'] = []
-	commands['visual'] = []
+	for key in mode_change:
+		commands[key] = []
+
 	motions = set([])
 	for nsection, lines in enumerate(fixed_lines):
 		for i, parts in enumerate(lines):
@@ -188,6 +200,10 @@ def parse_commands(fixed_lines):
 
 			command = command.replace('CTRL-',CTRL_CHAR) # Replace control characters
 			command = command.replace(' ','') # Remove whitespace in commands
+			try:
+				command = re.sub('<([A-Za-z]+)>',lambda m: special_chars[m.group(1)], command) # Replace some special chars
+			except:
+				pass # Unknown special char, just skip it for now
 
 			# Escape all text except inside {}
 			regexp_texts = re.findall(r'\{.*?\}', command)
@@ -200,11 +216,29 @@ def parse_commands(fixed_lines):
 
 			command = optional_expr.sub(r'(?:\1)?',command) # Convert optional part into regex
 
+			# Check if command is an ex command
+			if plain_command[0] == ':':
+				# Insert possible range after initial ':'
+				# Some ex commands don't allow ranges, but add it anyway since index doesn't specify which do
+				line_marker = r"\d+|[.$%]|['].|[/].*?([/])?|[?].*?([?])?|[\][/]|[\][?]|[\][&]"
+				range_expr = r'(?P<from>%s)?([,;](?P<to>%s))?'%(line_marker,line_marker)
+				idx = command.index(':')
+				command = command[:idx+1]+range_expr+command[idx+1:]
+
+				command += r'(?P<args>[^A-Za-z].*)' # Some commands take arguments. Again, impossible to say which
+				command += r'\%sM'%CTRL_CHAR # Ex commands expect a newline at the end
+
+			# Check if command takes numeric argument
+			if numcom_expr.search(parts[3]) and not r'\{count\}':
+				command = '(?P<num>\d*)'+command
+
 			# Convert some placeholders into appropriate regexes
 			command = command.replace(r'{char}','(?P<char>[^ ])')
 			command = command.replace(r'{word}','(?P<word>[^ ]+)')
 			command = command.replace(r'{count}','(?P<count>\d+)')
 			command = command.replace(r'{height}','(?P<height>\d+)')
+			command = command.replace(r'{pattern}','(?P<pattern>.*?)')
+			command = command.replace(r'{filter}','(?P<filter>.*?)'+special_chars['CR'])
 
 			#command = expr_expr.sub(lambda x: '(?P<expr>['+fix_regexp(x)+'])', command) # Handle remaining {} as regexps
 			command = expr_expr.sub(lambda x: '['+fix_regexp(x)+']', command) # Handle remaining {} as regexps
@@ -215,23 +249,18 @@ def parse_commands(fixed_lines):
 			else:
 				is_motion = False
 
-			# Check if command takes numeric argument
-			if numcom_expr.search(parts[3]):
-				command = '(?P<num>\d*)'+command
 
-			# Check if command is an ex command
-			if plain_command[0] == ':':
-				command += r'\^M'# Ex commands expect a newline at the end
 
 			expect_motion = command.endswith('{motion}')
 
 			tup = [tag, re.compile(command.replace('{motion}','')), parts[3], plain_command, is_motion, expect_motion]
-
-
 			# Check which modes commands belong to
 			if nsection > 0 and nsection != 7 and nsection != 8:
 				commands['normal'].insert(0,tup)
 				commands['visual'].insert(0,tup)
+				if nsection == 9: # Ex mode commands
+					tup2 = (tup[0], re.compile(tup[1].pattern[2:]), tup[2], tup[3], tup[4], tup[5]) # Recompile expresison but with leading '\:' removed
+					commands['ex'].insert(0,tup2)
 			elif nsection == 7: # Visual mode command
 				# This will add some duplicate commands since some are given as normal mode commands as well
 				# Insert at beginning to make sure these are found first

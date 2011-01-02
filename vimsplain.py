@@ -138,11 +138,11 @@ def parse(instr, commands, mode, recording, only_motions=False):
 			else:
 				try:
 					expl += ' from '+m.group('from')
-				except TypeError:
+				except IndexError, TypeError:
 					pass
 				try:
 					expl += ' to '+m.group('to')
-				except TypeError:
+				except IndexError, TypeError:
 					pass
 				return (instr[0:m.end()], expl, instr[m.end():], newmode, recording)
 
@@ -229,7 +229,7 @@ def parse_commands(fixed_lines):
 				command += r'\%sM'%CTRL_CHAR # Ex commands expect a newline at the end
 
 			# Check if command takes numeric argument
-			if numcom_expr.search(parts[3]) and not r'\{count\}':
+			if numcom_expr.search(parts[3]) and not r'\{count\}' in command:
 				command = '(?P<num>\d*)'+command
 
 			# Convert some placeholders into appropriate regexes

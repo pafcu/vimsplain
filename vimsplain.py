@@ -125,8 +125,13 @@ def parse(instr, commands, mode, recording, only_motions=False):
 
 		m = expr.match(instr) # Check if input matches command
 		if m:
+
 			if tag == 'q':
 				recording = not recording
+
+			if mode == 'visual' and not is_motion:
+				mode = 'normal'
+
 			expl = fix_explanation(m,expl)
 
 			newmode = mode
@@ -171,7 +176,7 @@ def fix_regexp(regexp):
 
 # Commands that change mode.
 mode_change = {}
-mode_change['insert'] = ['a','A','i','I','gI','gi','o','O','c','cc','v_c','v_r','v_s',':startinsert',':append','s']
+mode_change['insert'] = ['a','A','i','I','gI','gi','o','O','c','cc','C','v_c','v_r','v_s',':startinsert',':append','s','S']
 mode_change['normal'] = ['CTRL-[','i_CTRL-[','i_CTRL-C','i_<Esc>','c_CTRL-\_CTRL-N','c_CTRL-\_GTRL-G','v_CTRL-\_CTRL-N','v_CTRL-\_GTRL-G',':visual',':view']
 mode_change['visual'] = ['CTRL_V','V','v','<RightMouse>']
 mode_change['ex'] = ['Q']

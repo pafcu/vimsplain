@@ -21,10 +21,11 @@ means
 ^	cursor to the first CHAR of the line
 V	start linewise Visual mode
 or:
-^V	start blockwise Visual mode
+^V	start blockwise Visual mode.
 
 Therefore, the non-standard approch of using '§' is used, since that character is not used as a command in Vim, and is easy to type on most keyboards. A drawback is that § can not be entered in Insert mode since it will be interpreted as CTRL.
 Escape, or CTRL-[, is denoted by §[.
+If the program is invoked with the --convert_special switch, <C-x> (where x is some character) will be converted to §x and <CR> will be converted to §M in the input. The reason this is only enabled when the switch is used is that it makes it impossible to enter some Vim commands (since these would be interpreted as a special character instead of commands).
 
 A more compex example:
 > python vimsplain.py "4JD=Gjwci(*a§[jcfda.join(',')§[ZZ"

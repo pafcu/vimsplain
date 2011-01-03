@@ -9,6 +9,31 @@ CTRL_CHAR = '§'
 # TODO: better handling of CTRL, special chars
 # Unicode issues with Python 2.x, don't use it!
 
+# Commands that change mode.
+mode_change = {}
+mode_change['insert'] = ['a','A','i','I','gI','gi','o','O','c','cc','C','v_c','v_r','v_s',':startinsert',':append','s','S']
+mode_change['normal'] = ['CTRL-[','i_CTRL-[','i_CTRL-C','i_<Esc>','c_CTRL-\_CTRL-N','c_CTRL-\_GTRL-G','v_CTRL-\_CTRL-N','v_CTRL-\_GTRL-G',':visual',':view']
+mode_change['visual'] = ['CTRL-V','V','v','<RightMouse>', 'v_v', 'v_V', 'v_CTRL-V']
+mode_change['ex'] = ['Q']
+mode_mapping = dict([(command, mode) for mode in mode_change for command in mode_change[mode]])
+visual_mode_mapping = {'v':'character', 'V':'line', 'CTRL-V':'block', 'v_v':'character', 'v_V':'line', 'v_CTRL-V':'block'}
+class State:
+	def __init__(self, mode='normal'):
+		self.mode = mode
+		self.visualmode = ''
+		self.recording = False
+
+	def update(self, tag, is_motion):
+		if tag == 'q':
+			self.recording = not self.recording
+		if self.mode != mode_mapping.get(tag, self.mode): # Should change mode?
+			self.mode = mode_mapping[tag]
+			self.visualmode = visual_mode_mapping.get(tag, None)
+		elif self.mode == 'visual' and self.visualmode != visual_mode_mapping.get(tag, self.visualmode): # Switch Visual mode
+			self.visualmode = visual_mode_mapping.get(tag, None)
+		elif self.mode == 'visual' and not is_motion: # Should exit Visual mode due to non-motion
+			self.mode = 'normal'
+
 def fix_help(helpfile):
 	"""Fix input vim helpfile"""
 	sameas_expr = re.compile(r'same as ([^"][^ ]+|"[^"]+")')
@@ -105,17 +130,18 @@ def fix_explanation(m, expl):
 			pass
 	return expl
 
-def parse(instr, commands, mode, recording, only_motions=False):
+def parse(instr, commands, state, only_motions=False):
+	recording = state.recording
 	"""Parse next command in instr"""
 	# Remove escapes in normal mode, they do nothing anyway
-	while mode == 'normal' and instr.startswith('%s['%CTRL_CHAR):
+	while state.mode == 'normal' and instr.startswith('%s['%CTRL_CHAR):
 		instr = instr[2:]
 
 	if instr == '':
 		raise ValueError
 
 	# Loop over possible commands
-	for (tag, expr, expl, plain, is_motion, expect_motion) in commands[mode]:
+	for (tag, expr, expl, plain, is_motion, expect_motion) in commands[state.mode]:
 		if only_motions and not is_motion: # Sometimes we are only interested in motion commands
 			continue
 
@@ -125,25 +151,14 @@ def parse(instr, commands, mode, recording, only_motions=False):
 
 		m = expr.match(instr) # Check if input matches command
 		if m:
-
-			if tag == 'q':
-				recording = not recording
-
-			if mode == 'visual' and not is_motion:
-				mode = 'normal'
+			state.update(tag, is_motion)
 
 			expl = fix_explanation(m,expl)
 
-			newmode = mode
-			if tag in mode_mapping:
-				if mode != mode_mapping[tag]:
-					newmode = mode_mapping[tag]
-					#print('(switch to %s mode)'%newmode)
-
 			if expect_motion:
 				cmd = instr[0:m.end()]
-				motion_match, motion_expl, instr, mode, recording = parse(instr[m.end():],commands,mode, recording, only_motions=True)
-				return (cmd+motion_match, expl+' with motion %s'%motion_expl, instr, newmode, recording)
+				motion_match, motion_expl, instr, state = parse(instr[m.end():], commands, state, only_motions=True)
+				return (cmd+motion_match, expl+' with motion %s'%motion_expl, instr, state)
 			else:
 				try:
 					expl += ' from '+m.group('from')
@@ -153,7 +168,7 @@ def parse(instr, commands, mode, recording, only_motions=False):
 					expl += ' to '+m.group('to')
 				except (IndexError, TypeError):
 					pass
-				return (instr[0:m.end()], expl, instr[m.end():], newmode, recording)
+				return (instr[0:m.end()], expl, instr[m.end():], state)
 
 	raise ValueError
 
@@ -173,15 +188,6 @@ def fix_regexp(regexp):
 
 	return regexp
 
-
-# Commands that change mode.
-mode_change = {}
-mode_change['insert'] = ['a','A','i','I','gI','gi','o','O','c','cc','C','v_c','v_r','v_s',':startinsert',':append','s','S']
-mode_change['normal'] = ['CTRL-[','i_CTRL-[','i_CTRL-C','i_<Esc>','c_CTRL-\_CTRL-N','c_CTRL-\_GTRL-G','v_CTRL-\_CTRL-N','v_CTRL-\_GTRL-G',':visual',':view']
-mode_change['visual'] = ['CTRL_V','V','v','<RightMouse>']
-mode_change['ex'] = ['Q']
-
-mode_mapping = dict([(command, mode) for mode in mode_change for command in mode_change[mode]])
 
 special_chars = {'CR':CTRL_CHAR+'M', 'TAB':CTRL_CHAR+'I', 'BS':CTRL_CHAR+'?', 'Esc':CTRL_CHAR+'[', 'NL':CTRL_CHAR+'M', 'Space':' '}
 
@@ -288,11 +294,10 @@ instr = args[0]
 if options.convert:
 	instr = replace_specials(instr)
 
-mode = 'normal'
-recording = False
+state = State()
 
 while instr != '':
-	if mode == 'insert':
+	if state.mode == 'insert':
 		inserted = ''
 		j = 0
 		# Copy inserted text
@@ -306,9 +311,9 @@ while instr != '':
 		# Check for commands
 		matched = None
 		if instr[j:] != '':
-			matched, explanation, instr, mode, recording = parse(instr, commands, mode, recording)
+			matched, explanation, instr, state = parse(instr, commands, state)
 		if matched:
 			print('\t\tCommand: %s\t%s'%(matched, explanation))
 	else:
-		matched, explanation, instr, mode, recording = parse(instr, commands, mode, recording)
+		matched, explanation, instr, state = parse(instr, commands, state)
 		print('%s\t%s'%(matched, explanation))

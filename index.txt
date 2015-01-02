@@ -334,6 +334,7 @@ tag		char	      note action in Normal mode	~
 				   to the left
 |U|		U		2  undo all latest changes on one line
 |V|		V		   start linewise Visual mode
+				   selecting N lines
 |W|		W		1  cursor N WORDS forward
 |X|		["x]X		2  delete N characters before the cursor [into
 				   buffer x]
@@ -394,8 +395,9 @@ tag		char	      note action in Normal mode	~
 				   buffer x] and start insert
 |t|		t{char}		1  cursor till before Nth occurrence of {char}
 				   to the right
-|u|		u		2  undo changes
+|u|		u		2  undo N changes
 |v|		v		   start characterwise Visual mode
+				   selecting N characters
 |w|		w		1  cursor N words forward
 |x|		["x]x		2  delete N characters under and after the
 				   cursor [into buffer x]

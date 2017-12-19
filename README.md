@@ -1,10 +1,16 @@
-Vimsplain takes an sequence of vim commands and attempts to explain the meaning of the commands. Note that there are some Unicode-related problems with Python 2 so it's better to use a Python 3.x interpreter (usually installed as python3 or python3.1).
+Vimsplain takes an sequence of vim commands and attempts to explain the meaning of the commands. Note that there are some Unicode-related problems with Python 2 so it's better to use a Python 3.x interpreter (often installed as python3).
 
 Usage:
-python vimsplain.py commands
+
+```
+python3 vimsplain.py commands
+```
 
 e.g.
-> python vimsplain.py qa3jYpJDq2@aZZ
+
+```
+> python3 vimsplain.py qa3jYpJDq2@aZZ
+
 qa      record typed characters into named register {0-9a-zA-Z"} (uppercase to append)
 3j      cursor 3 lines downward
 Y       yank 1 lines [into buffer x]; synonym for "yy"
@@ -14,21 +20,31 @@ D       delete the characters under the cursor until the end of the line and 1-1
 q       (while recording) stops recording
 2@a     execute the contents of register {a-z} 2 times
 ZZ      store current file if modified, and exit
+```
 
-Normally escape sequences are noted by "^", e.g. "^C","^[". This introduces potential ambiguity, e.g. it is not possible to know wheter
-^V
-means 
+Normally escape sequences are noted by `^`, e.g. `^C`,`^[`. This introduces potential ambiguity, e.g. it is not possible to know wheter `^V` means 
+
+```
 ^	cursor to the first CHAR of the line
 V	start linewise Visual mode
-or:
-^V	start blockwise Visual mode.
+```
 
-Therefore, the non-standard approch of using '§' is used, since that character is not used as a command in Vim, and is easy to type on most keyboards. A drawback is that § can not be entered in Insert mode since it will be interpreted as CTRL.
-Escape, or CTRL-[, is denoted by §[.
-If the program is invoked with the --convert_special switch, <C-x> (where x is some character) will be converted to §x and <CR> will be converted to §M in the input. The reason this is only enabled when the switch is used is that it makes it impossible to enter some Vim commands (since these would be interpreted as a special character instead of commands).
+or:
+
+```
+^V	start blockwise Visual mode.
+```
+
+Therefore, the non-standard approch of using `§` is used, since that character is not used as a command in Vim, and is easy to type on most keyboards. A drawback is that § can not be entered in Insert mode since it will be interpreted as CTRL.
+Escape, or `CTRL-[`, is denoted by `§[`.
+
+Vim documentation often uses `<C-x>` to denote Ctrl+x (where x is some character). If the program is invoked with the `--convert_special` switch, `<C-x>` will be converted to `§x` and `<CR>` will be converted to `§M` in the input. The reason this is only enabled when the switch is used is that it makes it impossible to enter some Vim commands (since these would be interpreted as a special character instead of commands).
 
 A more compex example:
+
+```
 > python vimsplain.py "4JD=Gjwci(*a§[jcfda.join(',')§[ZZ"
+
 4J      Join 4 lines; default is 2
 D       delete the characters under the cursor until the end of the line and 1-1 more lines [into buffer x]; synonym for "d$"
 =G      filter 1 lines through "indent" with motion cursor to line 1, default last line
@@ -42,10 +58,10 @@ cfd     delete 1 text [into buffer x] and start insert with motion cursor to 1 o
                 Text: a.join(',')
                 Command: §[     end insert mode (unless 'insertmode' set)
 ZZ      store current file if modified, and exit
+```
 
 There are still many features missing, most importantly support for arrow keys, mouse buttons, backspace and command line editing mode.
 
 The file index.txt is a slightly modified version of the same file as included in Vim 7.3. It is licensed under the Vim license, see LICENSE.vim. Eveything else is licensed under the ISC license, see LICENSE.
 
-bitcoin:1MGzckuL28V81zY4zhc4zK3zYdppUKPsS2
-https://blockchain.info/address/1MGzckuL28V81zY4zhc4zK3zYdppUKPsS2
+[![Donate using Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/saparvia/donate)
